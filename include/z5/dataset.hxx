@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <functional>
 
 #include "z5/metadata.hxx"
 #include "z5/handle.hxx"
@@ -19,6 +20,9 @@
 
 
 namespace z5 {
+
+    using CacheGetFunc = std::function<void*(types::ShapeType)>;
+    using CachePutFunc = std::function<void(types::ShapeType, void*)>;
 
     // Abstract basis class for the dataset
     class Dataset {
@@ -89,6 +93,12 @@ namespace z5 {
         inline types::Datatype getDtype() const {return dtype_;}
         inline bool isZarr() const {return isZarr_;}
 
+        inline void enableCaching(bool enable, CacheGetFunc getFunc, CachePutFunc putFunc) {
+            useCache_ = enable;
+            cacheGetFunc_ = getFunc;
+            cachePutFunc_ = putFunc;
+        }
+
         //
         // API - MUST implement
         //
@@ -100,7 +110,7 @@ namespace z5 {
         // read a chunk - returns True if this is a varlen chunk
         virtual bool readChunk(const types::ShapeType &, void *) const = 0;
         // read a chunk; return the unformatted data
-        virtual void readRawChunk(const types::ShapeType &, std::vector<char> &) const = 0;
+        virtual void readRawChunk(const types::ShapeType &, std::vector<char> &, const int tId = -1) const = 0;
 
         // check the request type
         virtual void checkRequestType(const std::type_info &) const = 0;
@@ -125,6 +135,11 @@ namespace z5 {
         virtual void chunkPath(const types::ShapeType &, fs::path &) const = 0;
         virtual void removeChunk(const types::ShapeType &) const = 0;
         virtual void remove() const = 0;
+
+        // caching
+        bool useCache_{false};
+        CacheGetFunc cacheGetFunc_{nullptr};
+        CachePutFunc cachePutFunc_{nullptr};
 
     protected:
         // private members:

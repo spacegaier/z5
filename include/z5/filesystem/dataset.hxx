@@ -92,9 +92,9 @@ namespace filesystem {
         }
 
         inline void readRawChunk(const types::ShapeType & chunkIndices,
-                                 std::vector<char> & buffer) const {
+                                 std::vector<char> & buffer, const int tId) const {
             handle::Chunk chunk(handle_, chunkIndices, defaultChunkShape(), shape());
-            read(chunk.path(), buffer);
+            read(chunk.path(), buffer, tId);
         }
 
         inline void checkRequestType(const std::type_info & type) const {
@@ -214,7 +214,7 @@ namespace filesystem {
             file.close();
         }
 
-        inline void read(const fs::path & path, std::vector<char> & buffer) const {
+        inline void read(const fs::path & path, std::vector<char> & buffer, const int tId = -1) const {
             // open input stream and read the filesize
             std::ifstream file(path, std::ios::binary);
 
@@ -241,7 +241,7 @@ namespace filesystem {
             }
             // varlen chunks are only supported in n5
             if(isVarlen && isZarr_) {
-                throw std::runtime_error("Varlength chunks are not supported in zarr");
+                throw std::runtime_error("Varlength chunks are not supported in ZARR");
             }
         }
 

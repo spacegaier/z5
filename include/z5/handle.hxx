@@ -97,6 +97,7 @@ namespace handle {
         virtual ~Dataset() {}
 
         const std::string & zarrDelimiter() const {return zarrDelimiter_;}
+        void setZarrDelimiter(const std::string & zarrDelimiter) {zarrDelimiter_ = zarrDelimiter;}
 
     private:
         std::string zarrDelimiter_;
