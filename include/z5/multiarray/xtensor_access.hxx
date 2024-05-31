@@ -60,7 +60,7 @@ namespace multiarray {
 
             // check if this chunk exists, if not fill output with fill value
             if(!ds.chunkExists(chunkId)) {
-                view = fillValue;;
+                view = fillValue;
                 continue;
             }
 

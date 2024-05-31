@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1)
+cmake_minimum_required(VERSION 3.5)
 
 set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
@@ -74,6 +74,9 @@ option(WITH_MARRAY "Build with c++ marray multiarray" OFF)
 
 # adaptions to travis build
 option(WITHIN_TRAVIS "Flag for builds within travis" OFF)
+
+# use xsimd
+option(USE_XSIMD "Use xsimd" ON)
 
 # build c++ tests
 option(BUILD_TESTS "Build c++ tests" OFF)
@@ -154,15 +157,16 @@ if(BUILD_Z5PY)
     include_directories(xtensor-python_INCLUDE_DIRS)
 endif()
 
-find_package(xsimd)
-if(xsimd_FOUND)
-    message(STATUS "Found xsimd, compiling with XTENSOR_USE_XSIMD")
-    include_directories(xsimd_INCLUDE_DIRS)
-    add_definitions(-DXTENSOR_USE_XSIMD)
-else()
-    message(STATUS "xsimd not found, compiling without vector instructions")
+if(USE_XSIMD)
+    find_package(xsimd)
+    if(xsimd_FOUND)
+        message(STATUS "Found xsimd, compiling with XTENSOR_USE_XSIMD")
+        include_directories(xsimd_INCLUDE_DIRS)
+        add_definitions(-DXTENSOR_USE_XSIMD)
+    else()
+        message(STATUS "xsimd not found, compiling without vector instructions")
+    endif()
 endif()
-
 
 ###########################
 # nlohmann_json library
