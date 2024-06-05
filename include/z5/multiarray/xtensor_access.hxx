@@ -69,9 +69,9 @@ namespace multiarray {
             chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
                                         1, std::multiplies<std::size_t>());
 
-            void *cachePointer = nullptr;
+            std::vector<T>* cachePointer = nullptr;
             if(ds.useCache_) {
-                cachePointer = ds.cacheGetFunc_(chunkId);
+                cachePointer = static_cast<std::vector<T>*>(ds.cacheGetFunc_(chunkId));
             }
 
             if(cachePointer == nullptr) {                
@@ -112,8 +112,7 @@ namespace multiarray {
 
                 ds.cachePutFunc_(chunkId, &buffer);
             } else {
-                T* chunkPointer = static_cast<T*>(ds.cacheGetFunc_(chunkId));
-                buffer = Buffer(chunkPointer, chunkPointer + chunkSize);
+                buffer = *cachePointer;
 
                 std::size_t chunkStoreSize = maxChunkSize;
                 if(chunkStoreSize != chunkSize) {
@@ -164,9 +163,6 @@ namespace multiarray {
         const auto & maxChunkShape = ds.defaultChunkShape();
 
         typedef std::vector<T> Buffer;
-        // TODO the thread buffers should be allocated by the thread that uses them
-        // for optimal performance
-        std::vector<Buffer> threadBuffers(nThreads, Buffer(maxChunkSize));
         std::shared_mutex cacheMutex;
 
         const auto & chunking = ds.chunking();
@@ -181,7 +177,7 @@ namespace multiarray {
         util::parallel_foreach(tp, nChunks, [&](const int tId, const std::size_t chunkIndex){
 
             const auto & chunkId = chunkRequests[chunkIndex];
-            auto & buffer = threadBuffers[tId];
+            Buffer buffer;
 
             types::ShapeType offsetInRequest, requestShape, chunkShape;
             types::ShapeType offsetInChunk;
@@ -210,12 +206,13 @@ namespace multiarray {
             std::size_t chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
                                                     1, std::multiplies<std::size_t>());
 
-            void *cachePointer = nullptr;
+            std::vector<T>* cachePointer = nullptr;
+            std::vector<T>* bufferPointer = nullptr;
             if(ds.useCache_) {
                 // Grab mutex to ensure data does not get pushed out of the 
                 // cache by another parallel thread until we are done with it
                 cacheMutex.lock_shared();
-                cachePointer = ds.cacheGetFunc_(chunkId);
+                cachePointer = static_cast<std::vector<T>*>(ds.cacheGetFunc_(chunkId));
             }
 
             if(cachePointer == nullptr) {
@@ -258,9 +255,9 @@ namespace multiarray {
 
                 std::unique_lock lock(cacheMutex);
                 ds.cachePutFunc_(chunkId, &buffer);
+                bufferPointer = &buffer;
             } else {
-                T* chunkPointer = static_cast<T*>(cachePointer);
-                buffer = Buffer(chunkPointer, chunkPointer + chunkSize);
+                bufferPointer = cachePointer;
                 cacheMutex.unlock();
 
                 std::size_t chunkStoreSize = maxChunkSize;
@@ -276,13 +273,13 @@ namespace multiarray {
             // -> we can read all the data from the chunk
             if(completeOvlp) {
                 // fast copy implementation
-                copyBufferToView(buffer, view, out.strides());
+                copyBufferToView(*bufferPointer, view, out.strides());
             }
             // request and chunk overlap only partially
             // -> we can read the chunk data only partially
             else {
                 // get a view to the part of the buffer we are interested in
-                auto fullBuffView = xt::adapt(buffer, chunkShape);
+                auto fullBuffView = xt::adapt(*bufferPointer, chunkShape);
                 xt::xstrided_slice_vector bufSlice;
                 sliceFromRoi(bufSlice, offsetInChunk, requestShape);
                 auto bufView = xt::strided_view(fullBuffView, bufSlice);

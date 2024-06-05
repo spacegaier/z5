@@ -55,7 +55,7 @@ namespace compression {
     		}
 
             // resize the output data
-            outSize -= bzs.avail_out;;
+            outSize -= bzs.avail_out;
             dataOut.resize(outSize);
         }
 

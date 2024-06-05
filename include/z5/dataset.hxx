@@ -93,10 +93,10 @@ namespace z5 {
         inline types::Datatype getDtype() const {return dtype_;}
         inline bool isZarr() const {return isZarr_;}
 
-        inline void enableCaching(bool enable, CacheGetFunc getFunc, CachePutFunc putFunc) {
+        inline void enableCaching(bool enable, CachePutFunc putFunc, CacheGetFunc getFunc) {
             useCache_ = enable;
-            cacheGetFunc_ = getFunc;
             cachePutFunc_ = putFunc;
+            cacheGetFunc_ = getFunc;
         }
 
         //
