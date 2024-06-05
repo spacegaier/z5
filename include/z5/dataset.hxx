@@ -21,8 +21,8 @@
 
 namespace z5 {
 
-    using CacheGetFunc = std::function<void*(types::ShapeType)>;
-    using CachePutFunc = std::function<void(types::ShapeType, void*)>;
+    using CachePutFunc = std::function<void(types::ShapeType, void*, types::ShapeType, std::size_t)>;
+    using CacheGetFunc = std::function<void*(types::ShapeType, types::ShapeType&, std::size_t&)>;
 
     // Abstract basis class for the dataset
     class Dataset {

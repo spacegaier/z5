@@ -58,23 +58,22 @@ namespace multiarray {
             sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
             auto view = xt::strided_view(out, offsetSlice);
 
-            // check if this chunk exists, if not fill output with fill value
-            if(!ds.chunkExists(chunkId)) {
-                view = fillValue;
-                continue;
-            }
-
-            // get the shape and size of the chunk (in the actual grid)
-            ds.getChunkShape(chunkId, chunkShape);
-            chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
-                                        1, std::multiplies<std::size_t>());
-
             std::vector<T>* cachePointer = nullptr;
             if(ds.useCache_) {
-                cachePointer = static_cast<std::vector<T>*>(ds.cacheGetFunc_(chunkId));
+                cachePointer = static_cast<std::vector<T>*>(ds.cacheGetFunc_(chunkId, chunkShape, chunkSize));
             }
 
-            if(cachePointer == nullptr) {                
+            if (cachePointer == nullptr) {
+                // check if this chunk exists, if not fill output with fill value
+                if (!ds.chunkExists(chunkId)) {
+                    view = fillValue;
+                    continue;
+                }
+
+                // get the shape and size of the chunk (in the actual grid)
+                ds.getChunkShape(chunkId, chunkShape);
+                chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<std::size_t>());
+
                 // read the data from storage
                 std::vector<char> dataBuffer;
                 ds.readRawChunk(chunkId, dataBuffer);
@@ -110,7 +109,7 @@ namespace multiarray {
                     util::reverseEndiannessInplace<T>(&buffer[0], &buffer[0] + chunkSize);
                 }
 
-                ds.cachePutFunc_(chunkId, &buffer);
+                ds.cachePutFunc_(chunkId, &buffer, chunkShape, chunkSize);
             } else {
                 buffer = *cachePointer;
 
@@ -181,6 +180,7 @@ namespace multiarray {
 
             types::ShapeType offsetInRequest, requestShape, chunkShape;
             types::ShapeType offsetInChunk;
+            std::size_t chunkSize;
 
             // std::cout << "Reading chunk " << chunkId << std::endl;
             bool completeOvlp = chunking.getCoordinatesInRoi(chunkId,
@@ -195,28 +195,28 @@ namespace multiarray {
             sliceFromRoi(offsetSlice, offsetInRequest, requestShape);
             auto view = xt::strided_view(out, offsetSlice);
 
-            // check if this chunk exists, if not fill output with fill value
-            if(!ds.chunkExists(chunkId)) {
-                view = fillValue;
-                return;
-            }
-
-            // get the current chunk-shape
-            ds.getChunkShape(chunkId, chunkShape);
-            std::size_t chunkSize = std::accumulate(chunkShape.begin(), chunkShape.end(),
-                                                    1, std::multiplies<std::size_t>());
-
             std::vector<T>* cachePointer = nullptr;
             std::vector<T>* bufferPointer = nullptr;
             if(ds.useCache_) {
                 // Grab mutex to ensure data does not get pushed out of the 
                 // cache by another parallel thread until we are done with it
                 cacheMutex.lock_shared();
-                cachePointer = static_cast<std::vector<T>*>(ds.cacheGetFunc_(chunkId));
+                cachePointer = static_cast<std::vector<T>*>(ds.cacheGetFunc_(chunkId, chunkShape, chunkSize));
             }
 
             if(cachePointer == nullptr) {
                 cacheMutex.unlock();
+
+                // check if this chunk exists, if not fill output with fill value
+                if (!ds.chunkExists(chunkId)) {
+                    view = fillValue;
+                    return;
+                }
+
+                // get the current chunk-shape
+                ds.getChunkShape(chunkId, chunkShape);
+                std::size_t chunkSize =
+                    std::accumulate(chunkShape.begin(), chunkShape.end(), 1, std::multiplies<std::size_t>());
 
                 // read the data from storage
                 std::vector<char> dataBuffer;
@@ -254,7 +254,7 @@ namespace multiarray {
                 }
 
                 std::unique_lock lock(cacheMutex);
-                ds.cachePutFunc_(chunkId, &buffer);
+                ds.cachePutFunc_(chunkId, &buffer, chunkShape, chunkSize);
                 bufferPointer = &buffer;
             } else {
                 bufferPointer = cachePointer;
